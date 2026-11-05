@@ -25,6 +25,9 @@
   .status { font-weight:700; font-size:18px; }
   .closed { color:var(--closed); } .opened { color:var(--opened); }
   .cert { padding:4px 0; } .cert.no { color:var(--muted); }
+  .bottle-wrap { display:flex; justify-content:center; margin:8px 0 4px; }
+  .bottle-wrap svg { width:150px; height:auto; filter:drop-shadow(0 14px 22px rgba(0,0,0,.55)); }
+  .title { text-align:center; }
   .hero { display:flex; gap:14px; align-items:flex-start; }
   .hero img { width:64px; max-height:170px; object-fit:contain; }
   .note { color:var(--muted); font-size:13px; }
@@ -70,16 +73,56 @@ if (!/^[0-9a-f]{32}$/.test(t)) {
     .catch(function () { fail("Passport not available", "Please try again later."); });
 }
 
+
+var NS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs, text) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; }
+function fitText(str, max) { str = String(str || ""); return str.length > max ? str.slice(0, max - 1) + "…" : str; }
+function bottleSVG(b) {
+  var s = svgEl("svg", { viewBox: "0 0 200 560", role: "img", "aria-label": "Bottle " + (b.name || "") });
+  var defs = svgEl("defs", {});
+  var g = svgEl("linearGradient", { id: "glass", x1: "0", x2: "1", y1: "0", y2: "0" });
+  [["0", "#0b1a12"], [".18", "#1f3a2a"], [".32", "#0f2419"], [".75", "#08140d"], ["1", "#030805"]].forEach(function (st) {
+    g.appendChild(svgEl("stop", { offset: st[0], "stop-color": st[1] })); });
+  var cap = svgEl("linearGradient", { id: "cap", x1: "0", x2: "1", y1: "0", y2: "0" });
+  [["0", "#4a0f18"], [".35", "#9e2b3a"], ["1", "#2a070d"]].forEach(function (st) {
+    cap.appendChild(svgEl("stop", { offset: st[0], "stop-color": st[1] })); });
+  var lab = svgEl("linearGradient", { id: "label", x1: "0", x2: "1", y1: "0", y2: "0" });
+  [["0", "#d9d0c3"], [".2", "#f7f2ea"], [".8", "#efe7da"], ["1", "#c9bfb1"]].forEach(function (st) {
+    lab.appendChild(svgEl("stop", { offset: st[0], "stop-color": st[1] })); });
+  defs.appendChild(g); defs.appendChild(cap); defs.appendChild(lab); s.appendChild(defs);
+  // Bordeaux silhouette
+  s.appendChild(svgEl("path", { fill: "url(#glass)", d:
+    "M84 20 H116 V150 C116 192 180 190 180 238 V532 C180 546 170 556 156 556 H44 C30 556 20 546 20 532 V238 C20 190 84 192 84 150 Z" }));
+  s.appendChild(svgEl("rect", { x: 81, y: 14, width: 38, height: 104, rx: 4, fill: "url(#cap)" }));
+  s.appendChild(svgEl("rect", { x: 79, y: 12, width: 42, height: 10, rx: 3, fill: "#5c1420" }));
+  s.appendChild(svgEl("path", { d: "M30 300 v220", stroke: "rgba(255,255,255,.10)", "stroke-width": 6, "stroke-linecap": "round" }));
+  // label
+  s.appendChild(svgEl("rect", { x: 26, y: 300, width: 148, height: 170, rx: 3, fill: "url(#label)" }));
+  s.appendChild(svgEl("rect", { x: 34, y: 308, width: 132, height: 154, rx: 2, fill: "none", stroke: "#b8963e", "stroke-width": 1 }));
+  var t = function (y, str, size, weight, color, family, spacing) {
+    s.appendChild(svgEl("text", { x: 100, y: y, "text-anchor": "middle", "font-size": size, "font-weight": weight || 400,
+      fill: color || "#2a1a14", "font-family": family || "Georgia, serif", "letter-spacing": spacing || 0 }, str)); };
+  t(338, fitText((b.producer || "").toUpperCase(), 16), 15, 400, "#2a1a14", "Georgia, serif", 1.5);
+  s.appendChild(svgEl("line", { x1: 70, x2: 130, y1: 350, y2: 350, stroke: "#b8963e", "stroke-width": 1 }));
+  t(382, fitText(b.name, 14), 20, 400, "#5c1420");
+  t(410, fitText(b.region, 22), 10, 600, "#4a3a32", "-apple-system, system-ui, sans-serif", 1);
+  t(440, b.vintage ? String(b.vintage) : "", 18, 400, "#2a1a14");
+  t(456, b.size_ml ? b.size_ml + " mL" : "", 8, 400, "#7a6a60", "-apple-system, system-ui, sans-serif");
+  return s;
+}
+
 function render(p) {
   if (!p) { fail("This passport is not shared (any more)", "The seller may have stopped sharing it, or the link has expired."); return; }
   app.innerHTML = "";
   var b = p.bottle || {};
-  var hero = el("div", "hero");
-  if (b.image_url && /^https:\/\//.test(b.image_url)) { var img = el("img"); img.src = b.image_url; img.alt = ""; hero.appendChild(img); }
-  var txt = el("div");
+  // Drawn VinoTrust bottle with a label from the passport data (no producer photos on the public page).
+  var wrap = el("div", "bottle-wrap");
+  wrap.appendChild(bottleSVG(b));
+  app.appendChild(wrap);
+  var txt = el("div", "title");
   txt.appendChild(el("h1", null, b.name || "Bottle"));
   txt.appendChild(el("p", "sub", [b.producer, b.vintage, b.region, b.country, b.size_ml ? b.size_ml + " mL" : null].filter(Boolean).join(" · ")));
-  hero.appendChild(txt); app.appendChild(hero);
+  app.appendChild(txt);
 
   var s = p.seal, c = card("Cork seal");
   if (s) {
