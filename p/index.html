@@ -129,17 +129,21 @@ function render(p) {
   var stage = el("div", "stage");
   app.appendChild(stage);
   var rot = (tilt == null) ? 0 : (tilt - 90);
+  var placed = null;
   function place(node, ar) {
-    var W = stage.clientWidth, S = stage.clientHeight, t = Math.abs(rot) * Math.PI / 180;
+    placed = { node: node, ar: ar };
+    var W = stage.clientWidth || 360, S = stage.clientHeight || 300, t = Math.abs(rot) * Math.PI / 180;
     var hh = 0.9 * Math.min(W / (Math.abs(Math.sin(t)) + ar * Math.abs(Math.cos(t))),
                             S / (Math.abs(Math.cos(t)) + ar * Math.abs(Math.sin(t))));
     node.style.height = hh + "px"; node.style.width = (hh * ar) + "px";
     node.style.transform = "translate(-50%, -50%) rotate(" + rot + "deg)";
   }
   function drawn() { stage.innerHTML = ""; var sv = bottleSVG(b); stage.appendChild(sv); place(sv, 200 / 560); }
+  // re-fit when the page is shown or resized (a hidden page has no size at load time)
+  if (window.ResizeObserver) new ResizeObserver(function () { if (placed) place(placed.node, placed.ar); }).observe(stage);
   if (b.image_url && /^https:\/\//.test(b.image_url)) {
     var img = el("img"); img.alt = b.name || "Bottle"; img.referrerPolicy = "no-referrer";
-    img.onload = function () { place(img, img.naturalWidth / img.naturalHeight); };
+    img.onload = function () { place(img, (img.naturalWidth || 600) / (img.naturalHeight || 1000)); };
     img.onerror = drawn;
     img.src = b.image_url; stage.appendChild(img);
   } else { drawn(); }
