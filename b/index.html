@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VinoTrust Seal</title>
+<style>
+  :root { --bg:#120a0c; --fg:#f4ece6; --muted:#b9a9a2; --accent:#9e2b3a; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+         background:var(--bg); color:var(--fg); font-family:-apple-system,system-ui,sans-serif; padding:16px; box-sizing:border-box; }
+  .card { max-width:420px; width:100%; text-align:center; }
+  h1 { font-family:Georgia,serif; font-weight:400; font-size:28px; margin:0 0 8px; }
+  p { color:var(--muted); line-height:1.5; }
+  a.btn { display:block; margin:24px 0 12px; padding:14px; border-radius:14px; background:var(--accent);
+          color:#fff; text-decoration:none; font-weight:600; }
+  code { font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="card">
+  <p>VINOTRUST · WINE BOTTLE PASSPORT</p>
+  <h1 id="title">Seal detected</h1>
+  <p id="text">Open this bottle in the VinoTrust app.</p>
+  <a class="btn" id="open" href="#">Open in VinoTrust</a>
+  <code id="uid"></code>
+  <p style="font-size:13px">A public verification page for buyers without the app is coming soon.</p>
+</div>
+<script>
+  var u = (new URLSearchParams(location.search).get("u") || "").toUpperCase();
+  if (/^[0-9A-F]{8,20}$/.test(u)) {
+    var link = "vinotrust://seal/" + u;
+    document.getElementById("open").href = link;
+    document.getElementById("uid").textContent = "Seal " + u;
+    setTimeout(function () { location.href = link; }, 300);
+  } else {
+    document.getElementById("title").textContent = "Unknown seal";
+    document.getElementById("text").textContent = "This link is not valid.";
+    document.getElementById("open").style.display = "none";
+  }
+</script>
+</body>
+</html>

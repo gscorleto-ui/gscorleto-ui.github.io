@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>VinoTrust Passport</title>
+<style>
+  :root { --bg:#120a0c; --card:#1d1214; --fg:#f4ece6; --muted:#b9a9a2; --accent:#9e2b3a;
+          --closed:#e5484d; --opened:#30a46c; --line:#2e2124; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:-apple-system,system-ui,sans-serif;
+         padding:16px; line-height:1.45; }
+  main { max-width:520px; margin:0 auto; }
+  .kicker { color:var(--muted); font-size:12px; letter-spacing:.12em; margin:8px 0 4px; }
+  h1 { font-family:Georgia,serif; font-weight:400; font-size:30px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px; margin:12px 0; }
+  .card h2 { font-size:13px; letter-spacing:.08em; color:var(--muted); font-weight:600; margin:0 0 10px; text-transform:uppercase; }
+  .row { display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-top:1px solid var(--line); }
+  .row:first-of-type { border-top:0; }
+  .row span:first-child { color:var(--muted); }
+  .row span:last-child { text-align:right; }
+  .status { font-weight:700; font-size:18px; }
+  .closed { color:var(--closed); } .opened { color:var(--opened); }
+  .cert { padding:4px 0; } .cert.no { color:var(--muted); }
+  .hero { display:flex; gap:14px; align-items:flex-start; }
+  .hero img { width:64px; max-height:170px; object-fit:contain; }
+  .note { color:var(--muted); font-size:13px; }
+  a.btn { display:block; margin:16px 0; padding:14px; border-radius:14px; background:var(--accent);
+          color:#fff; text-decoration:none; font-weight:600; text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <p class="kicker">VINOTRUST · WINE BOTTLE PASSPORT</p>
+  <div id="app"><p class="sub">Loading passport…</p></div>
+  <a class="btn" id="open" href="#" hidden>Open in the VinoTrust app</a>
+  <p class="note">Owner name and storage location are never shown.</p>
+</main>
+<script>
+// D-034: public view of a passport the seller shared. Only data from get_shared_passport.
+// The publishable key is meant to be public; access is limited by the database function.
+var SUPABASE_URL = "https://zslrsrvupkheexvewsoh.supabase.co";
+var PUBLISHABLE_KEY = "sb_publishable_f_DOgYR1g17hSsvzefb4ww_xq0rEo2b";
+
+var app = document.getElementById("app");
+function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function d(s, time) { if (!s) return "—"; var o = { year:"numeric", month:"short", day:"numeric" };
+  if (time) { o.hour = "2-digit"; o.minute = "2-digit"; } return new Date(s).toLocaleString("en-GB", o); }
+function n(v) { return (v == null) ? "—" : (Math.round(v * 10) / 10).toString(); }
+function card(title) { var c = el("div", "card"); c.appendChild(el("h2", null, title)); app.appendChild(c); return c; }
+function row(c, k, v) { var r = el("div", "row"); r.appendChild(el("span", null, k)); r.appendChild(el("span", null, v)); c.appendChild(r); }
+function cert(c, ok, text) { c.appendChild(el("div", "cert" + (ok ? "" : " no"), (ok ? "✓ " : "○ ") + text)); }
+function fail(title, text) { app.innerHTML = ""; app.appendChild(el("h1", null, title)); app.appendChild(el("p", "sub", text)); }
+
+var t = (new URLSearchParams(location.search).get("t") || "").toLowerCase();
+if (!/^[0-9a-f]{32}$/.test(t)) {
+  fail("Link not valid", "Please ask the seller for a new link.");
+} else {
+  var open = document.getElementById("open");
+  open.href = "vinotrust://passport/" + t; open.hidden = false;
+  fetch(SUPABASE_URL + "/rest/v1/rpc/get_shared_passport", {
+    method: "POST",
+    headers: { "apikey": PUBLISHABLE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_token: t })
+  }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(render)
+    .catch(function () { fail("Passport not available", "Please try again later."); });
+}
+
+function render(p) {
+  if (!p) { fail("This passport is not shared (any more)", "The seller may have stopped sharing it, or the link has expired."); return; }
+  app.innerHTML = "";
+  var b = p.bottle || {};
+  var hero = el("div", "hero");
+  if (b.image_url && /^https:\/\//.test(b.image_url)) { var img = el("img"); img.src = b.image_url; img.alt = ""; hero.appendChild(img); }
+  var txt = el("div");
+  txt.appendChild(el("h1", null, b.name || "Bottle"));
+  txt.appendChild(el("p", "sub", [b.producer, b.vintage, b.region, b.country, b.size_ml ? b.size_ml + " mL" : null].filter(Boolean).join(" · ")));
+  hero.appendChild(txt); app.appendChild(hero);
+
+  var s = p.seal, c = card("Cork seal");
+  if (s) {
+    if (s.status === "opened") {
+      c.appendChild(el("div", "status opened", "Opened on " + d(s.opened_at, true)));
+      c.appendChild(el("div", "note", "Saved permanently – this cannot be undone."));
+    } else {
+      c.appendChild(el("div", "status closed", "Original cork – not opened"));
+      c.appendChild(el("div", "note", "Sealed since " + d(s.sealed_since, true)));
+    }
+    row(c, "Last checked", d(s.last_checked_at, true));
+    if (s.uid_end) row(c, "Seal number ends in", s.uid_end);
+  } else { c.appendChild(el("div", "note", "No VinoTrust seal on this bottle.")); }
+
+  var h = p.history; c = card("Storage history");
+  if (h && h.readings > 0) {
+    row(c, "Recorded", d(h.from) + " – " + d(h.to));
+    row(c, "Bottle temperature", n(h.bottle_temp_min) + " – " + n(h.bottle_temp_max) + " °C");
+    row(c, "Average", n(h.bottle_temp_avg) + " °C");
+    row(c, "Humidity", n(h.humidity_min) + " – " + n(h.humidity_max) + " %");
+    if (h.lying_pct != null) row(c, "Stored lying", n(h.lying_pct) + " % of the time");
+    if (h.standing_pct) row(c, "Standing", n(h.standing_pct) + " %");
+    if (p.sensor && p.sensor.last_moved_at) row(c, "Last moved", d(p.sensor.last_moved_at, true));
+    row(c, "Measurements", String(h.readings));
+    if (h.invalid_readings > 0) c.appendChild(el("div", "note", h.invalid_readings + " faulty readings (sensor start-up) are not used."));
+  } else { c.appendChild(el("div", "note", "No storage sensor on this bottle.")); }
+
+  c = card("Certificates");
+  if (s) { cert(c, !!s.nxp_signature, "Chip: NXP original (signature checked)");
+           cert(c, !!s.key_secured, "Seal key secured in the VinoTrust cloud"); }
+  if (p.history_seals && p.history_seals.count > 0) cert(c, true, "History sealed " + p.history_seals.count + "× in the cloud (tamper-proof chain)");
+  if (p.sensor && p.sensor.calibrated_at) cert(c, true, "Sensor calibrated on " + d(p.sensor.calibrated_at));
+  else if (p.sensor && p.sensor.present) cert(c, false, "Sensor calibration: prototype, not yet");
+  cert(c, false, "Winery certificate: not yet");
+
+  var f = el("p", "note", "Shared by the seller on " + d(p.shared_since, true) + (p.expires_at ? " · valid until " + d(p.expires_at, true) : "") + ".");
+  app.appendChild(f);
+}
+</script>
+</body>
+</html>

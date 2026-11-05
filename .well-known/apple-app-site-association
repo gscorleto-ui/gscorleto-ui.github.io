@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["M6PLPF4WT8.com.miovino.vinotrust"],
+        "components": [
+          { "/": "/b", "comment": "NFC seal link" },
+          { "/": "/b/*", "comment": "NFC seal link" },
+          { "/": "/p", "comment": "Passport shared for sale" },
+          { "/": "/p/*", "comment": "Passport shared for sale" }
+        ]
+      }
+    ]
+  }
+}
