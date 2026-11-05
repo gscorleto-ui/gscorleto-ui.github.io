@@ -25,6 +25,14 @@
   .status { font-weight:700; font-size:18px; }
   .closed { color:var(--closed); } .opened { color:var(--opened); }
   .cert { padding:4px 0; } .cert.no { color:var(--muted); }
+  .stage { position:relative; width:100%; height:300px; margin:8px 0 6px; border-radius:18px; overflow:hidden;
+           background:radial-gradient(ellipse at 50% 40%, #fbf7f1 0%, #ece3d6 70%, #d9cdbd 100%); }
+  .stage > * { position:absolute; left:50%; top:50%; transform-origin:50% 50%; }
+  .stage img { mix-blend-mode:multiply; }
+  .stage svg { filter:drop-shadow(0 10px 16px rgba(0,0,0,.35)); }
+  .pose { text-align:center; color:var(--muted); font-size:14px; margin:4px 0 2px; }
+  .pose b { color:var(--fg); font-weight:600; }
+  .imgnote { text-align:center; color:var(--muted); font-size:11px; margin:0 0 8px; }
   .bottle-wrap { display:flex; justify-content:center; margin:8px 0 4px; }
   .bottle-wrap svg { width:150px; height:auto; filter:drop-shadow(0 14px 22px rgba(0,0,0,.55)); }
   .title { text-align:center; }
@@ -115,10 +123,36 @@ function render(p) {
   if (!p) { fail("This passport is not shared (any more)", "The seller may have stopped sharing it, or the link has expired."); return; }
   app.innerHTML = "";
   var b = p.bottle || {};
-  // Drawn VinoTrust bottle with a label from the passport data (no producer photos on the public page).
-  var wrap = el("div", "bottle-wrap");
-  wrap.appendChild(bottleSVG(b));
-  app.appendChild(wrap);
+  // Bottle shown in the position it lay most of the time (D-033: measured angles only).
+  var h0 = p.history || {};
+  var tilt = (h0.typical_tilt_deg != null) ? h0.typical_tilt_deg : null;
+  var stage = el("div", "stage");
+  app.appendChild(stage);
+  var rot = (tilt == null) ? 0 : (tilt - 90);
+  function place(node, ar) {
+    var W = stage.clientWidth, S = stage.clientHeight, t = Math.abs(rot) * Math.PI / 180;
+    var hh = 0.9 * Math.min(W / (Math.abs(Math.sin(t)) + ar * Math.abs(Math.cos(t))),
+                            S / (Math.abs(Math.cos(t)) + ar * Math.abs(Math.sin(t))));
+    node.style.height = hh + "px"; node.style.width = (hh * ar) + "px";
+    node.style.transform = "translate(-50%, -50%) rotate(" + rot + "deg)";
+  }
+  function drawn() { stage.innerHTML = ""; var sv = bottleSVG(b); stage.appendChild(sv); place(sv, 200 / 560); }
+  if (b.image_url && /^https:\/\//.test(b.image_url)) {
+    var img = el("img"); img.alt = b.name || "Bottle"; img.referrerPolicy = "no-referrer";
+    img.onload = function () { place(img, img.naturalWidth / img.naturalHeight); };
+    img.onerror = drawn;
+    img.src = b.image_url; stage.appendChild(img);
+  } else { drawn(); }
+  if (tilt != null) {
+    var pos = Math.abs(tilt) < 20 ? "lying" : (Math.abs(tilt) > 60 ? "standing" : "tilted");
+    var dir = Math.abs(tilt) < 1 ? "" : (tilt > 0 ? ", neck " + n(Math.abs(tilt)) + "° up" : ", neck " + n(Math.abs(tilt)) + "° down");
+    var pose = el("p", "pose");
+    pose.appendChild(document.createTextNode("Stored "));
+    pose.appendChild(el("b", null, pos + dir));
+    pose.appendChild(document.createTextNode(" – " + n(h0.typical_tilt_pct) + " % of the time"));
+    app.appendChild(pose);
+  }
+  if (b.image_url) app.appendChild(el("p", "imgnote", "Picture: producer / retailer · prototype"));
   var txt = el("div", "title");
   txt.appendChild(el("h1", null, b.name || "Bottle"));
   txt.appendChild(el("p", "sub", [b.producer, b.vintage, b.region, b.country, b.size_ml ? b.size_ml + " mL" : null].filter(Boolean).join(" · ")));
@@ -143,6 +177,7 @@ function render(p) {
     row(c, "Bottle temperature", n(h.bottle_temp_min) + " – " + n(h.bottle_temp_max) + " °C");
     row(c, "Average", n(h.bottle_temp_avg) + " °C");
     row(c, "Humidity", n(h.humidity_min) + " – " + n(h.humidity_max) + " %");
+    if (h.typical_tilt_deg != null) row(c, "Typical position", n(h.typical_tilt_deg) + "° (" + n(h.typical_tilt_pct) + " % of the time)");
     if (h.lying_pct != null) row(c, "Stored lying", n(h.lying_pct) + " % of the time");
     if (h.standing_pct) row(c, "Standing", n(h.standing_pct) + " %");
     if (p.sensor && p.sensor.last_moved_at) row(c, "Last moved", d(p.sensor.last_moved_at, true));
